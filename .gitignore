@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.firebase/
+
+# Service account keys: NEVER commit these
+*service-account*.json
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+
+# Team roster and source docs stay on this computer (the repo is public)
+data/roster.csv
+data/roster.original.csv
+data/pipeline_tracker.csv
+data/areas.csv
+private/
+.claude/
+
+# Tests read the real roster, so they stay local too
+tests/

@@ -1,0 +1,73 @@
+{
+  "version": "2026-11-03",
+  "source": "Hueytown BOH Leadership Pipeline (current structure as of 11/3/2026)",
+  "chain_of_command": ["Assistant Captain", "Area Captain", "Shift Leader", "Joshua (Admin)"],
+  "areas": ["Breading/Raw", "Prep", "Centerline"],
+  "dayparts": ["AM", "PM"],
+  "attendance": {
+    "window_days": 60,
+    "on_time_pct_formula": "on_time_shifts / scheduled_shifts_worked * 100 within the last 60 days",
+    "definition_of_on_time": "TBD (e.g. clocked in at or before scheduled start; confirm with Joshua)",
+    "excused_absence_handling": "TBD"
+  },
+  "roles": {
+    "area_captain": {
+      "prerequisites": [
+        {"id": "ac_attendance", "label": "On-time attendance, last 60 days", "type": "attendance_pct", "operator": ">=", "value": 93},
+        {"id": "ac_pathways", "label": "Captain Pathways completed", "type": "pathway_complete", "pathway": "captain"},
+        {"id": "ac_letters", "label": "Recommendation letters", "type": "letter_count", "operator": ">=", "value": 2, "allowed_authors": ["Manager", "Shift Leader", "Shift Leader in Training"]},
+        {"id": "ac_p5", "label": "P5 Evaluation score", "type": "p5_pct", "operator": ">=", "value": 90, "note": "72/80 or higher; which P5 counts (latest vs best) is TBD, default latest"},
+        {"id": "ac_application", "label": "Application of interest submitted", "type": "application_submitted", "target_role": "Area Captain"}
+      ],
+      "after_prerequisites": {
+        "id": "ac_eval_shifts",
+        "label": "3 manager-scored evaluation shifts",
+        "count": 3,
+        "scored_by": ["Manager"],
+        "pass_rule": "TBD (scoring sheet and pass mark not defined yet)"
+      },
+      "perks": {"raise": "TBD"}
+    },
+    "assistant_captain": {
+      "per_area": 1,
+      "covers": "the daypart the Area Captain is not working",
+      "prerequisites": "TBD (not defined; do not invent)"
+    },
+    "shift_leader": {
+      "prerequisites": [
+        {"id": "sl_attendance", "label": "On-time attendance, last 60 days", "type": "attendance_pct", "operator": ">=", "value": 95},
+        {"id": "sl_captain_days", "label": "Days as a Captain", "type": "days_in_role", "role": "Area Captain", "operator": ">=", "value": 60, "note": "Whether Assistant Captain time counts is TBD"},
+        {"id": "sl_letters", "label": "Recommendation letters from ALL managers", "type": "letters_from_all", "author_role": "Manager"},
+        {"id": "sl_pathways", "label": "Shift Leader Pathways completed", "type": "pathway_complete", "pathway": "shift_leader"}
+      ],
+      "after_prerequisites": {
+        "id": "sl_training_shifts",
+        "label": "3 manager-scored training shifts",
+        "count": 3,
+        "scored_by": ["Manager"],
+        "pass_rule": "sum(points_earned) / sum(points_possible) * 100 >= 90",
+        "score_sheet": "TBD"
+      }
+    }
+  },
+  "p5_evaluation": {
+    "evaluator": "Manager on Duty (MOD)",
+    "applies_to": ["Area Captain", "Assistant Captain"],
+    "ps": ["Purpose Driven", "Professional", "Personal", "Playful (Smile)", "Productive"],
+    "behaviors_per_p": 4,
+    "scale": {"1": "Not seen", "2": "Sometimes", "3": "Consistent", "4": "Leads others in it"},
+    "max_score": 80,
+    "pass_score": 72,
+    "pass_pct": 90,
+    "coaching_flag": "any P whose 4-behavior average is < 3 (P score < 12 of 16), even if the total passes",
+    "note_required_for_scores": [1, 2]
+  },
+  "checklists": {
+    "checkpoints": ["open", "mid-shift", "pre-rush", "close"],
+    "completed_by": "team members in the area",
+    "overseen_by": ["Area Captain", "Assistant Captain"],
+    "verified_by": "Shift Leader",
+    "items_per_area": "TBD"
+  },
+  "end_of_shift_summary": {"written_by": "Shift Leader", "sent_to": "Joshua", "fields": "see LEADER_APP_SPEC.md"}
+}

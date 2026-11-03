@@ -1,0 +1,117 @@
+rules_version = '2';
+
+// Hueytown BOH Leaders: who can see and change what.
+// Access list lives in members/{google-email}: { personId, role, isManager, active }
+//   role: admin | manager | shift_leader  (staff / MODs: evaluate, verify, coach)
+//         captain | assistant_captain | team_member  (learners: see only their own records)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function memberPath() { return /databases/$(database)/documents/members/$(request.auth.token.email.lower()); }
+    function me() { return get(memberPath()).data; }
+    function isMember() { return signedIn() && exists(memberPath()) && me().get('active', true) != false; }
+    function role() { return me().role; }
+    function isAdmin() { return isMember() && role() == 'admin'; }
+    function isStaff() { return isMember() && role() in ['admin', 'manager', 'shift_leader']; }
+    function isOverseer() { return isMember() && role() in ['admin', 'captain', 'assistant_captain']; }
+    function isManager() { return isStaff() && me().get('isManager', false) == true; }
+    function myPersonId() { return me().personId; }
+    function ownsDoc() { return isMember() && resource.data.personId == myPersonId(); }
+    function ownsNew() { return isMember() && request.resource.data.personId == myPersonId(); }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // ----- Access list -----
+    match /members/{email} {
+      allow read: if isAdmin() || (signedIn() && email == request.auth.token.email.lower());
+      allow write: if isAdmin();
+    }
+
+    // ----- Shared reference data: everyone on the team reads, only Joshua edits -----
+    match /settings/{id}       { allow read: if isMember(); allow write: if isAdmin(); }
+    match /areas/{id}          { allow read: if isMember(); allow write: if isAdmin(); }
+    match /p5Items/{id}        { allow read: if isMember(); allow write: if isAdmin(); }
+    match /modules/{id}        { allow read: if isMember(); allow write: if isAdmin(); }
+    match /checklistItems/{id} { allow read: if isMember(); allow write: if isAdmin(); }
+    // Roster (names, roles, areas). Private records are in the collections below.
+    match /people/{id}         { allow read: if isMember(); allow write: if isAdmin(); }
+
+    // ----- Private records about a person: staff read all, learners read only their own -----
+    match /attendance/{id}  { allow read: if isStaff() || ownsDoc(); allow write: if isAdmin(); }
+    match /letters/{id}     { allow read: if isStaff() || ownsDoc(); allow write: if isAdmin(); }
+    match /roleHistory/{id} { allow read: if isStaff() || ownsDoc(); allow write: if isAdmin(); }
+
+    match /applications/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create: if isAdmin() || (ownsNew() && request.resource.data.status == 'submitted');
+      allow update, delete: if isAdmin();
+    }
+
+    // P5: MODs score others (never themselves); the team member can only tap "acknowledge".
+    match /p5Evals/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create: if isStaff()
+        && request.resource.data.evaluatorId == myPersonId()
+        && request.resource.data.personId != myPersonId();
+      allow update: if isAdmin() || (ownsDoc() && onlyChanges(['teamMemberSignedAt', 'updatedAt']));
+      allow delete: if isAdmin();
+    }
+
+    // Evaluation / training shifts: only Managers score them.
+    match /shifts/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create: if isManager()
+        && request.resource.data.managerId == myPersonId()
+        && request.resource.data.personId != myPersonId();
+      allow update, delete: if isAdmin();
+    }
+
+    // Coaching notes: staff see all; the person sees a note only when it's shared with them.
+    match /coaching/{id} {
+      allow read: if isStaff() || (ownsDoc() && resource.data.shared == true);
+      allow create: if isStaff() && request.resource.data.authorId == myPersonId();
+      allow update: if isAdmin()
+        || (isStaff() && resource.data.authorId == myPersonId())
+        || (isStaff() && onlyChanges(['resolved', 'updatedAt']));
+      allow delete: if isAdmin();
+    }
+
+    // Pathways progress: each person writes only their own.
+    match /progress/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create, update: if isMember()
+        && request.resource.data.personId == myPersonId()
+        && id == myPersonId() + '_' + request.resource.data.moduleId;
+      allow delete: if isAdmin();
+    }
+
+    // Checklist runs: Captains oversee, Shift Leaders verify or send back.
+    match /checklistRuns/{id} {
+      allow read: if isMember();
+      allow create: if isAdmin() || (isOverseer()
+        && request.resource.data.status in ['open', 'overseen']
+        && !('verifiedById' in request.resource.data));
+      allow update: if isAdmin()
+        // Captain / Assistant Captain: work the items and mark overseen, until it's verified
+        || (isOverseer()
+            && resource.data.status != 'verified'
+            && request.resource.data.status in ['open', 'overseen', 'sent_back']
+            && (request.resource.data.status != 'overseen' || request.resource.data.overseenById == myPersonId())
+            && onlyChanges(['items', 'status', 'overseenById', 'overseenAt', 'updatedAt']))
+        // Shift Leader / MOD: verify or send back an overseen checklist
+        || (isStaff()
+            && resource.data.status == 'overseen'
+            && request.resource.data.status in ['verified', 'sent_back']
+            && request.resource.data.verifiedById == myPersonId()
+            && onlyChanges(['status', 'verifiedById', 'verifiedAt', 'verifyResult', 'verifyNote', 'updatedAt']));
+      allow delete: if isAdmin();
+    }
+
+    // End-of-shift summaries: Shift Leader writes, only Joshua reads them all.
+    match /summaries/{id} {
+      allow read: if isAdmin() || (isStaff() && resource.data.shiftLeaderId == myPersonId());
+      allow create: if isStaff() && request.resource.data.shiftLeaderId == myPersonId();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
