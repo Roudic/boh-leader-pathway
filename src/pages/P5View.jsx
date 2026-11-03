@@ -1,6 +1,7 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
 import { store } from '../data/store.js';
+import { can } from '../lib/access.js';
 import { fmtPct, p5Config } from '../lib/p5.js';
 import { fmtDate, nowIso } from '../lib/dates.js';
 import { Card, Pill, toast } from '../components/ui.jsx';
@@ -8,6 +9,7 @@ import { Card, Pill, toast } from '../components/ui.jsx';
 export default function P5View() {
   const { id } = useParams();
   const { data, member, reload } = useApp();
+  const nav = useNavigate();
   const e = data.p5Evals.find((x) => x.id === id);
   if (!e) return <p style={{ marginTop: 20 }}>Evaluation not found.</p>;
   const cfg = p5Config(data.settings);
@@ -18,6 +20,20 @@ export default function P5View() {
     await store.update('p5Evals', e.id, { teamMemberSignedAt: nowIso() });
     await reload();
     toast('Acknowledged');
+  };
+
+  const uncheckAck = async () => {
+    await store.update('p5Evals', e.id, { teamMemberSignedAt: null });
+    await reload();
+    toast('Acknowledgment unchecked');
+  };
+
+  const removeEval = async () => {
+    if (!confirm(`Delete this P5 (${e.total}/80) for ${name(e.personId)}? This can't be undone.`)) return;
+    await store.remove('p5Evals', e.id);
+    nav(`/people/${e.personId}`, { replace: true });
+    await reload();
+    toast('P5 deleted');
   };
 
   return (
@@ -63,6 +79,12 @@ export default function P5View() {
         <p><b>Follow-up:</b> {e.followUpDate ? fmtDate(e.followUpDate) : '—'}</p>
         <p className="small muted">MOD signed {e.modSignedAt ? fmtDate(e.modSignedAt) : '—'} · Team member {e.teamMemberSignedAt ? `acknowledged ${fmtDate(e.teamMemberSignedAt)}` : 'has not acknowledged'}</p>
         {isMine && !e.teamMemberSignedAt && <button className="btn" onClick={ack}>I've gone over this with my MOD</button>}
+        {can.admin(member) && (
+          <div className="stack">
+            {e.teamMemberSignedAt && <button className="btn secondary" onClick={uncheckAck}>Uncheck team member acknowledgment</button>}
+            <button className="btn secondary" onClick={removeEval}>Delete this P5</button>
+          </div>
+        )}
       </Card>
     </>
   );

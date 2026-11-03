@@ -84,7 +84,7 @@ export default function Profile() {
                 <div><b>{i.label}</b></div>
                 <div className="small muted">{i.current} · needs {i.required}{i.note ? ` · ${i.note}` : ''}</div>
                 {admin && (i.overridden ? (
-                  <button className="btn link small" onClick={() => save(() => store.update('people', id, { prereqOverrides: Object.fromEntries(Object.entries(p.prereqOverrides || {}).filter(([k]) => k !== i.id)), ...(i.type === 'pathway_complete' ? { pathwayComplete: Object.fromEntries(Object.entries(p.pathwayComplete || {}).filter(([k]) => k !== i.pathway)) } : {}) }), 'Override removed')}>Remove override</button>
+                  <button className="btn link small" onClick={() => confirm(`Uncheck "${i.label}" for ${p.name}?`) && save(() => store.update('people', id, { prereqOverrides: Object.fromEntries(Object.entries(p.prereqOverrides || {}).filter(([k]) => k !== i.id)), ...(i.type === 'pathway_complete' ? { pathwayComplete: Object.fromEntries(Object.entries(p.pathwayComplete || {}).filter(([k]) => k !== i.pathway)) } : {}) }), 'Unchecked')}>Uncheck</button>
                 ) : !i.met && (
                   <OverrideForm onSave={(note) => save(() => store.update('people', id, { prereqOverrides: { ...(p.prereqOverrides || {}), [i.id]: { note, by: member.personId, at: nowIso() } } }), 'Marked met')} />
                 ))}
@@ -126,7 +126,7 @@ export default function Profile() {
         {letters.map((l) => (
           <div key={l.id} className="check">
             <span className="mark">✉</span>
-            <div className="grow"><b>{l.authorName}</b> <span className="small muted">({l.authorRole}) · {fmtDate(l.dateReceived)} · for {l.targetRole}</span>{l.text && <div className="small">{l.text}</div>}</div>
+            <div className="grow"><b>{l.authorName}</b> <span className="small muted">({l.authorRole}) · {fmtDate(l.dateReceived)} · for {l.targetRole}</span>{l.text && <div className="small">{l.text}</div>}{admin && <div><button className="btn link small" onClick={() => confirm(`Remove the letter from ${l.authorName}?`) && save(() => store.remove('letters', l.id), 'Letter removed')}>Remove</button></div>}</div>
           </div>
         ))}
         {letters.length === 0 && <p className="muted">None yet.</p>}
@@ -138,7 +138,12 @@ export default function Profile() {
           <div key={a.id} className="small" style={{ marginBottom: 8 }}>
             <b>{a.targetRole}</b> · {fmtDate(a.submittedAt)} · {a.source === 'paper' ? 'paper' : 'in app'} · {a.status}
             {a.why && <div>“{a.why}”</div>}
-            {admin && a.status !== 'reviewed' && <button className="btn link small" onClick={() => save(() => store.update('applications', a.id, { status: 'reviewed' }), 'Marked reviewed')}>Mark reviewed</button>}
+            {admin && (
+              <div>
+                <button className="btn link small" onClick={() => save(() => store.update('applications', a.id, { status: a.status === 'reviewed' ? 'submitted' : 'reviewed' }), a.status === 'reviewed' ? 'Marked not reviewed' : 'Marked reviewed')}>{a.status === 'reviewed' ? 'Uncheck reviewed' : 'Mark reviewed'}</button>
+                <button className="btn link small" onClick={() => confirm(`Remove this ${a.targetRole} application?`) && save(() => store.remove('applications', a.id), 'Application removed')}>Remove</button>
+              </div>
+            )}
           </div>
         ))}
         {apps.length === 0 && <p className="muted">None yet.</p>}
@@ -157,6 +162,8 @@ export default function Profile() {
                 <div>{n.text}</div>
                 {evaluator && !n.resolved && n.followUpDate && <button className="btn link small" onClick={() => save(() => store.update('coaching', n.id, { resolved: true }), 'Resolved')}>Mark resolved</button>}
                 {n.resolved && <span className="small muted">Resolved</span>}
+                {admin && n.resolved && <button className="btn link small" onClick={() => save(() => store.update('coaching', n.id, { resolved: false }), 'Reopened')}>Uncheck resolved</button>}
+                {admin && <button className="btn link small" onClick={() => confirm('Delete this coaching note?') && save(() => store.remove('coaching', n.id), 'Note deleted')}>Delete</button>}
               </div>
             </div>
           ))}
@@ -320,7 +327,7 @@ function ShiftsCard({ p, shifts, check, canScore, save, member, name }) {
   const { cfg, kind } = shifts;
   const blocked = !check?.allMet;
   const [f, setF] = useState({ date: new Date().toISOString().slice(0, 10), pointsEarned: '', pointsPossible: '', notes: '', overrideNote: '' });
-  const next = shifts.shifts.length + 1;
+  const next = Array.from({ length: cfg.count }, (_, i) => i + 1).find((n) => !shifts.shifts.some((s) => s.shiftNumber === n)) ?? cfg.count + 1;
   const ruleText = cfg.pass_pct != null ? `Pass: total ≥ ${cfg.pass_pct}%` : 'Pass rule: TBD (Joshua decides)';
   return (
     <Card title={kind === 'training' ? 'Training shifts' : 'Evaluation shifts'} right={<span className="small">{shifts.shifts.length}/{cfg.count}</span>}>
@@ -328,7 +335,10 @@ function ShiftsCard({ p, shifts, check, canScore, save, member, name }) {
       {shifts.shifts.map((s) => (
         <div key={s.id} className="row between small" style={{ padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
           <span>#{s.shiftNumber} · {fmtDate(s.date)} · {name(s.managerId)}{s.notes ? ` · ${s.notes}` : ''}</span>
-          <b>{s.pointsEarned}/{s.pointsPossible}</b>
+          <span className="row">
+            <b>{s.pointsEarned}/{s.pointsPossible}</b>
+            {member.role === 'admin' && <button className="btn link small" aria-label={`Remove shift ${s.shiftNumber}`} onClick={() => confirm(`Remove the score for shift #${s.shiftNumber}?`) && save(() => store.remove('shifts', s.id), 'Shift removed')}>✕</button>}
+          </span>
         </div>
       ))}
       {shifts.shifts.length > 0 && (
@@ -391,6 +401,9 @@ function AdminActions({ p, status, save, member, areas, history, today }) {
     <Card title="Joshua only">
       {isAC && status.status === 'eval_shifts_complete' && !p.approvedForPromotion && (
         <button className="btn ok" style={{ marginBottom: 8 }} onClick={() => save(() => store.update('people', p.id, { approvedForPromotion: { by: member.personId, at: nowIso() } }), 'Approved')}>Approve for Area Captain (after 3 evaluation shifts)</button>
+      )}
+      {p.approvedForPromotion && (
+        <button className="btn secondary" style={{ marginBottom: 8 }} onClick={() => confirm(`Uncheck ${p.name}'s approval?`) && save(() => store.update('people', p.id, { approvedForPromotion: null }), 'Approval removed')}>Uncheck approval for Area Captain</button>
       )}
       <div className="stack">
         <Disclose label="Promote…" small={false}>{(close) => (

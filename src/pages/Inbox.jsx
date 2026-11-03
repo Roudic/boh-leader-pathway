@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
 import { store } from '../data/store.js';
 import { fmtDate, nowIso } from '../lib/dates.js';
@@ -8,6 +8,7 @@ import { Card, Pill } from '../components/ui.jsx';
 export default function Inbox() {
   const { id } = useParams();
   const { data, reload } = useApp();
+  const nav = useNavigate();
   const name = (pid) => data.people.find((p) => p.id === pid)?.name || '—';
   const list = [...data.summaries].sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
   const open = id && list.find((s) => s.id === id);
@@ -27,6 +28,7 @@ export default function Inbox() {
           ))}
           <div className="small muted">Sent {new Date(open.submittedAt).toLocaleString()}</div>
         </Card>
+        <button className="btn secondary" onClick={async () => { await store.update('summaries', open.id, { readAt: null }); nav('/inbox'); await reload(); }}>Mark as unread</button>
       </>
     );
   }
