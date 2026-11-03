@@ -17,7 +17,6 @@ export async function buildDemoSeed() {
     areasCsv: await read('areas.csv'),
     p5Csv: await read('p5_evaluation_items.csv'),
     prereqs: JSON.parse(prereqText),
-    templateCsv: await read('areas_checklist_template.csv'),
     today: todayIso(),
   });
   seed.members = {};

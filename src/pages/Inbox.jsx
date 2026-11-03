@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
 import { store } from '../data/store.js';
-import { CHECKPOINT_LABEL } from '../lib/constants.js';
 import { fmtDate, nowIso } from '../lib/dates.js';
 import { Card, Pill } from '../components/ui.jsx';
 
@@ -22,17 +21,6 @@ export default function Inbox() {
       <>
         <p style={{ marginTop: 12 }}><Link to="/inbox">← Inbox</Link></p>
         <h1>{fmtDate(open.date)} {open.daypart} · {name(open.shiftLeaderId)}</h1>
-        <Card title="Checklists">
-          <table className="grid-status">
-            <tbody>
-              {(open.checklistStatus || []).map((a) => (
-                <tr key={a.areaId}><td>{a.area}</td>{a.cells.map((c) => (
-                  <td key={c.checkpoint}><div className="small muted">{CHECKPOINT_LABEL[c.checkpoint]}</div><Pill tone={c.status === 'verified' ? 'ok' : c.status === 'sent_back' ? 'bad' : c.label === 'TBD' ? '' : 'warn'}>{c.label.replace(' · verify', '')}</Pill></td>
-                ))}</tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
         <Card tight>
           {[['Wins', 'wins'], ['Issues', 'issues'], ['People', 'peopleNotes'], ['Follow-ups', 'followUps']].map(([l, k]) => (
             <div key={k} style={{ marginBottom: 10 }}><b>{l}</b><div style={{ whiteSpace: 'pre-wrap' }}>{open[k] || <span className="muted">—</span>}</div></div>

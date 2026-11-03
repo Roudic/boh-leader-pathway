@@ -1,5 +1,3 @@
-export const CHECKPOINTS = ['open', 'mid-shift', 'pre-rush', 'close'];
-export const CHECKPOINT_LABEL = { open: 'Open', 'mid-shift': 'Mid-shift', 'pre-rush': 'Pre-rush', close: 'Close' };
 export const DAYPARTS = ['AM', 'PM'];
 
 // App roles stored on members/{email}.role

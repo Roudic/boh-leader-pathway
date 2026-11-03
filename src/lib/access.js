@@ -15,8 +15,6 @@ export function defaultAppRole(person) {
 export const can = {
   admin: (m) => m?.role === 'admin',
   evaluate: (m) => EVALUATOR_ROLES.includes(m?.role),
-  verify: (m) => EVALUATOR_ROLES.includes(m?.role),
   scoreShifts: (m) => !!m?.isManager && EVALUATOR_ROLES.includes(m?.role),
-  oversee: (m) => ['captain', 'assistant_captain', 'admin'].includes(m?.role),
   seeAll: (m) => EVALUATOR_ROLES.includes(m?.role),
 };

@@ -4,11 +4,9 @@
 Tip: on your phone, tap **Share → Add to Home Screen**.
 
 ## Every shift
-1. **Checklists** (✅ tab): pick **AM/PM**. Each area shows Open / Mid-shift / Pre-rush / Close.
-   - **To do**: the Captain hasn't marked it overseen yet.
-   - **Overseen · verify**: your turn. Open it, walk the area, then tap **Verify ✓**. If something isn't done, write what to fix and tap **Send back**.
-   - **Verified ✓**: done.
-2. **End-of-shift summary** (📝 tab) before you leave: the checklist grid fills in by itself. Add **Wins, Issues, People** (who stood out, who needs coaching), and **Follow-ups**. Tap **Send to Joshua**. It goes to his inbox in the app.
+**End-of-shift summary** (📝 tab) before you leave: add **Wins, Issues, People** (who stood out, who needs coaching), and **Follow-ups**. Tap **Send to Joshua**. It goes to his inbox in the app.
+
+Area checklists and Pathways training are in their own apps, not this one.
 
 ## P5 Evaluation (⭐ tab), about 5 minutes
 1. Pick the Captain or Assistant Captain, area, AM/PM.
@@ -22,6 +20,5 @@ Tip: on your phone, tap **Share → Add to Home Screen**.
 Open anyone's profile (Home → their name) → **Add coaching note**. Leave "Let them see this note" **off** unless you want them to read it.
 
 ## Rules of thumb
-- Never check a box that isn't true.
-- Captains oversee; they don't do every item. You verify.
+- Score only what you saw.
 - Stuck or something looks wrong? Tell Joshua. Don't guess.

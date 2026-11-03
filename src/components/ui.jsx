@@ -58,20 +58,3 @@ export function Toaster() {
 export function Loading({ text = 'Loading…' }) {
   return <div className="center-screen muted">{text}</div>;
 }
-
-// Very small markdown: paragraphs, **bold**, links, images, line breaks.
-export function Markdown({ text = '' }) {
-  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const html = esc(text)
-    .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img alt="$1" src="$2">')
-    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-    .split(/\n{2,}/)
-    .map((p) => (/^#{1,3} /.test(p) ? `<h3>${p.replace(/^#{1,3} /, '')}</h3>` : `<p>${p.replace(/\n/g, '<br>')}</p>`))
-    .join('');
-  return <div className="md" dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-export function Bar({ pct }) {
-  return <div className="bar"><div style={{ width: `${Math.max(0, Math.min(100, pct || 0))}%` }} /></div>;
-}

@@ -13,21 +13,17 @@ async function loadAll(member) {
   const mine = [['personId', '==', member.personId]];
   const staff = can.seeAll(member);
   const scoped = (col, extra = []) => store.list(col, staff ? extra : [...mine, ...extra]);
-  const [settings, areas, people, p5Items, modules, checklistItems, checklistRuns,
-    attendance, letters, applications, p5Evals, shifts, progress, roleHistory, coaching, summaries, members] = await Promise.all([
+  const [settings, areas, people, p5Items,
+    attendance, letters, applications, p5Evals, shifts, roleHistory, coaching, summaries, members] = await Promise.all([
     store.get('settings', 'rules'),
     store.list('areas'),
     store.list('people'),
     store.list('p5Items'),
-    store.list('modules'),
-    store.list('checklistItems'),
-    store.list('checklistRuns', [['date', '>=', addDays(today, -14)]]),
     staff ? store.list('attendance', [['date', '>=', addDays(today, -180)]]) : store.list('attendance', mine),
     scoped('letters'),
     scoped('applications'),
     scoped('p5Evals'),
     scoped('shifts'),
-    scoped('progress'),
     scoped('roleHistory'),
     staff ? store.list('coaching') : store.list('coaching', [...mine, ['shared', '==', true]]),
     member.role === 'admin' ? store.list('summaries') : staff ? store.list('summaries', [['shiftLeaderId', '==', member.personId]]) : Promise.resolve([]),
@@ -35,8 +31,7 @@ async function loadAll(member) {
   ]);
   return {
     today, settings, areas: areas.sort(byOrder), people: people.sort(byOrder), p5Items: p5Items.sort(byOrder),
-    modules: modules.sort(byOrder), checklistItems: checklistItems.sort(byOrder), checklistRuns, attendance, letters,
-    applications, p5Evals, shifts, progress, roleHistory, coaching, summaries, members,
+    attendance, letters, applications, p5Evals, shifts, roleHistory, coaching, summaries, members,
   };
 }
 

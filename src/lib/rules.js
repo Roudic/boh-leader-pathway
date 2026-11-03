@@ -2,7 +2,6 @@
 // All thresholds come from settings (seeded from data/prerequisites.json and editable in Admin).
 import { daysBetween, addDays } from './dates.js';
 import { fmtPct } from './p5.js';
-import { CHECKPOINTS, CHECKPOINT_LABEL } from './constants.js';
 
 export const ROLE_KEY = { 'Area Captain': 'area_captain', 'Shift Leader': 'shift_leader', 'Assistant Captain': 'assistant_captain' };
 
@@ -41,20 +40,6 @@ export function statusFromTimes(scheduled, actual, settings) {
   return toMin(actual) <= toMin(scheduled) + grace ? 'on_time' : 'late';
 }
 
-// ---------- Pathways ----------
-export function pathwayFor(person) {
-  if (person.pipelineTarget === 'Shift Leader' || person.currentRole === 'Shift Leader') return 'shift_leader';
-  return 'captain';
-}
-
-export function pathwayProgress(personId, pathway, modules, progress) {
-  const mods = modules.filter((m) => m.pathway === pathway).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const rows = mods.map((m) => ({ module: m, progress: progress.find((p) => p.personId === personId && p.moduleId === m.id) }));
-  const required = rows.filter((r) => r.module.required);
-  const passedRequired = required.filter((r) => r.progress?.status === 'passed').length;
-  return { rows, requiredCount: required.length, passedRequired, complete: required.length > 0 && passedRequired === required.length };
-}
-
 // ---------- P5 ----------
 export function countedP5(personId, evals, settings) {
   const mine = evals.filter((e) => e.personId === personId);
@@ -87,7 +72,7 @@ export function daysInRoles(personId, roles, roleHistory, today) {
 
 export function evaluatePrereq(pr, person, ctx) {
   const { settings, today } = ctx;
-  const override = person.prereqOverrides?.[pr.id];
+  const override = person.prereqOverrides?.[pr.id] || (pr.type === 'pathway_complete' ? person.pathwayComplete?.[pr.pathway] : null);
   let met = false;
   let current = '';
   let required = '';
@@ -103,12 +88,11 @@ export function evaluatePrereq(pr, person, ctx) {
       break;
     }
     case 'pathway_complete': {
-      const prog = pathwayProgress(person.id, pr.pathway, ctx.modules, ctx.progress);
-      const manual = person.pathwayComplete?.[pr.pathway];
-      met = prog.complete || !!manual;
-      required = 'All required modules passed';
-      current = manual ? `Marked complete: ${manual.note || ''}` : `${prog.passedRequired}/${prog.requiredCount} modules`;
-      missing = `${pr.pathway === 'captain' ? 'Captain' : 'Shift Leader'} Pathways ${prog.passedRequired}/${prog.requiredCount} modules`;
+      // Pathways training runs in its own app. Completion is marked here by Joshua.
+      const label = pr.pathway === 'captain' ? 'Captain' : 'Shift Leader';
+      required = 'Pathways complete';
+      current = 'Not marked complete';
+      missing = `${label} Pathways not marked complete`;
       break;
     }
     case 'letter_count': {
@@ -261,22 +245,6 @@ export function dashboardFlags(ctx) {
     }
   }
 
-  // Checklists not verified today (only checkpoints that have items)
-  const withItems = new Set(ctx.checklistItems.map((i) => `${i.areaId}|${i.checkpoint}`));
-  if (withItems.size === 0) {
-    flags.push({ kind: 'setup', text: 'Checklist items are TBD: add them in Admin → Checklists' });
-  } else {
-    for (const dp of ['AM', 'PM']) {
-      const due = [];
-      for (const a of areas) for (const cp of checkpointsFor(dp, settings)) {
-        if (!withItems.has(`${a.id}|${cp}`)) continue;
-        const run = ctx.checklistRuns.find((r) => r.date === today && r.daypart === dp && r.areaId === a.id && r.checkpoint === cp);
-        if (run?.status !== 'verified') due.push(`${a.name} ${CHECKPOINT_LABEL[cp]}`);
-      }
-      if (due.length) flags.push({ kind: 'checklist', text: `Today ${dp}: ${due.length} checklist${due.length > 1 ? 's' : ''} not verified (${due.slice(0, 3).join(', ')}${due.length > 3 ? '…' : ''})` });
-    }
-  }
-
   // End-of-shift summaries missing (past 7 days, since the app started, not counting today)
   const start = settings?.startedOn || today;
   for (let i = 1; i <= 7; i++) {
@@ -287,20 +255,4 @@ export function dashboardFlags(ctx) {
     }
   }
   return flags;
-}
-
-export function checkpointsFor(daypart, settings) {
-  const map = settings?.tbd?.checkpointsByDaypart;
-  return map?.[daypart]?.length ? map[daypart] : CHECKPOINTS;
-}
-
-export function checklistGrid(date, daypart, ctx) {
-  return ctx.areas.map((a) => ({
-    area: a,
-    cells: checkpointsFor(daypart, ctx.settings).map((cp) => {
-      const items = ctx.checklistItems.filter((i) => i.areaId === a.id && i.checkpoint === cp);
-      const run = ctx.checklistRuns.find((r) => r.date === date && r.daypart === daypart && r.areaId === a.id && r.checkpoint === cp);
-      return { checkpoint: cp, itemCount: items.length, run, status: run?.status || (items.length ? 'open' : 'no_items') };
-    }),
-  }));
 }

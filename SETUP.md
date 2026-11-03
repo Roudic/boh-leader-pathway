@@ -43,7 +43,7 @@ These values are public identifiers, not passwords. The security rules (next ste
 (Command-line alternative: `npx firebase-tools login`, then `npx firebase-tools deploy --only firestore:rules --project YOUR_PROJECT_ID`.)
 
 ## 5. Run the one-time seed
-This loads `data/roster.csv`, `data/areas.csv`, `data/p5_evaluation_items.csv`, `data/prerequisites.json`, and any rows in `data/areas_checklist_template.csv` into Firestore. It also gives **your** Google email admin access.
+This loads `data/roster.csv`, `data/areas.csv`, `data/p5_evaluation_items.csv`, and `data/prerequisites.json` into Firestore. It also gives **your** Google email admin access.
 
 1. Firebase console → ⚙️ **Project settings** → **Service accounts** tab → **Generate new private key** → **Generate key**. A `.json` file downloads.
 2. Move it somewhere **outside** this project folder, e.g. `C:\Users\vinzi\keys\boh-service-account.json`. **Never commit or share this file.** It has full access to your database.

@@ -1,6 +1,6 @@
 # Hueytown BOH Leaders
 
-Mobile-first app for the Chick-fil-A Hueytown Back-of-House leadership pipeline: Joshua's pipeline dashboard, P5 Evaluations, area checklists (oversee → verify), end-of-shift summaries, person profiles, and Pathways training.
+Mobile-first app for the Chick-fil-A Hueytown Back-of-House leadership pipeline: Joshua's pipeline dashboard, P5 Evaluations, end-of-shift summaries, and person profiles. Pathways training and area checklists run in their own separate apps.
 
 - **Live:** https://roudic.github.io/boh-leader-pathway/
 - **Setup (Firebase, rules, seed, deploy):** [SETUP.md](SETUP.md)

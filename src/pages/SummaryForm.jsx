@@ -2,16 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
 import { store } from '../data/store.js';
-import { checklistGrid } from '../lib/rules.js';
-import { CHECKPOINT_LABEL } from '../lib/constants.js';
 import { fmtDate, nowIso } from '../lib/dates.js';
-import { Card, Field, Seg, Tbd, toast } from '../components/ui.jsx';
-import { RUN_STATUS } from './Checklists.jsx';
+import { Card, Field, Seg, toast } from '../components/ui.jsx';
 
 export function summaryText(s, people) {
   const name = people.find((p) => p.id === s.shiftLeaderId)?.name || '';
-  const grid = (s.checklistStatus || []).map((a) => `${a.area}: ${a.cells.map((c) => `${CHECKPOINT_LABEL[c.checkpoint]} ${c.label}`).join(', ')}`).join('\n');
-  return `End-of-shift summary ${fmtDate(s.date)} ${s.daypart} (${name})\n\nChecklists:\n${grid}\n\nWins: ${s.wins || '-'}\nIssues: ${s.issues || '-'}\nPeople: ${s.peopleNotes || '-'}\nFollow-ups: ${s.followUps || '-'}`;
+  return `End-of-shift summary ${fmtDate(s.date)} ${s.daypart} (${name})\n\nWins: ${s.wins || '-'}\nIssues: ${s.issues || '-'}\nPeople: ${s.peopleNotes || '-'}\nFollow-ups: ${s.followUps || '-'}`;
 }
 
 export default function SummaryForm() {
@@ -22,19 +18,13 @@ export default function SummaryForm() {
   const [f, setF] = useState({ wins: '', issues: '', peopleNotes: '', followUps: '' });
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
-  const grid = checklistGrid(date, dp, data);
   const contact = data.settings?.summaryContact || {};
   const existing = data.summaries.find((s) => s.date === date && s.daypart === dp && s.shiftLeaderId === member.personId);
-
-  const checklistStatus = grid.map((g) => ({
-    areaId: g.area.id, area: g.area.name,
-    cells: g.cells.map((c) => ({ checkpoint: c.checkpoint, status: c.status, label: c.itemCount ? RUN_STATUS[c.status][0] : 'TBD' })),
-  }));
 
   const submit = async () => {
     setBusy(true);
     try {
-      const doc = { date, daypart: dp, shiftLeaderId: member.personId, checklistStatus, ...f, submittedAt: nowIso(), readAt: null };
+      const doc = { date, daypart: dp, shiftLeaderId: member.personId, ...f, submittedAt: nowIso(), readAt: null };
       await store.add('summaries', doc);
       await reload();
       setSent(doc);
@@ -69,19 +59,6 @@ export default function SummaryForm() {
           <Field label="Daypart"><Seg value={dp} options={['AM', 'PM']} onChange={setDp} /></Field>
         </div>
         {existing && <p className="small" style={{ color: 'var(--warn)' }}>You already sent one for this shift. Sending again adds a second one.</p>}
-      </Card>
-      <Card title="Checklists (auto)">
-        <table className="grid-status">
-          <thead><tr><th>Area</th>{grid[0]?.cells.map((c) => <th key={c.checkpoint}>{CHECKPOINT_LABEL[c.checkpoint]}</th>)}</tr></thead>
-          <tbody>
-            {grid.map((g) => (
-              <tr key={g.area.id}>
-                <td>{g.area.name}</td>
-                {g.cells.map((c) => <td key={c.checkpoint}>{c.itemCount ? <span className={`pill ${RUN_STATUS[c.status][1]}`}>{RUN_STATUS[c.status][0].replace(' · verify', '')}</span> : <Tbd />}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </Card>
       <Card tight>
         <Field label="Wins"><textarea value={f.wins} onChange={(e) => setF({ ...f, wins: e.target.value })} /></Field>

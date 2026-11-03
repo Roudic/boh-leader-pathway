@@ -10,12 +10,8 @@ import ShiftHome from './pages/ShiftHome.jsx';
 import Profile from './pages/Profile.jsx';
 import P5Form from './pages/P5Form.jsx';
 import P5View from './pages/P5View.jsx';
-import Checklists from './pages/Checklists.jsx';
-import ChecklistRun from './pages/ChecklistRun.jsx';
 import SummaryForm from './pages/SummaryForm.jsx';
 import Inbox from './pages/Inbox.jsx';
-import Pathways from './pages/Pathways.jsx';
-import ModulePage from './pages/ModulePage.jsx';
 import Admin from './pages/Admin.jsx';
 import Apply from './pages/Apply.jsx';
 
@@ -52,26 +48,22 @@ export default function App() {
           <Route path="/people/:id" element={<Profile />} />
           <Route path="/p5/new" element={evaluator ? <P5Form /> : <Navigate to="/" />} />
           <Route path="/p5/:id" element={<P5View />} />
-          <Route path="/checklists" element={<Checklists />} />
-          <Route path="/checklists/run" element={<ChecklistRun />} />
           <Route path="/summary/new" element={evaluator ? <SummaryForm /> : <Navigate to="/" />} />
           <Route path="/inbox" element={isAdmin ? <Inbox /> : <Navigate to="/" />} />
           <Route path="/inbox/:id" element={isAdmin ? <Inbox /> : <Navigate to="/" />} />
-          <Route path="/pathways" element={<Pathways />} />
-          <Route path="/pathways/:id" element={<ModulePage />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/admin" element={isAdmin ? <Admin /> : <Navigate to="/" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
-      <nav className="tabbar">
-        <Tab to="/" ic="🏠" label="Home" end />
-        {evaluator && <Tab to="/p5/new" ic="⭐" label="P5 Eval" />}
-        <Tab to="/checklists" ic="✅" label="Checklists" />
-        <Tab to="/pathways" ic="📘" label="Pathways" />
-        {isAdmin ? <Tab to="/inbox" ic="📥" label="Inbox" badge={unread} /> : evaluator ? <Tab to="/summary/new" ic="📝" label="Summary" /> : <Tab to={`/people/${member.personId}`} ic="👤" label="Me" />}
-        {isAdmin && <Tab to="/admin" ic="⚙️" label="Admin" />}
-      </nav>
+      {evaluator && (
+        <nav className="tabbar">
+          <Tab to="/" ic="🏠" label="Home" end />
+          <Tab to="/p5/new" ic="⭐" label="P5 Eval" />
+          {isAdmin ? <Tab to="/inbox" ic="📥" label="Inbox" badge={unread} /> : <Tab to="/summary/new" ic="📝" label="Summary" />}
+          {isAdmin && <Tab to="/admin" ic="⚙️" label="Admin" />}
+        </nav>
+      )}
       <Toaster />
     </>
   );

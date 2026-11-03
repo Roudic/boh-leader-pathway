@@ -18,7 +18,7 @@ export default function Dashboard() {
   const cards = active.map((p) => ({ p, stage: pipelineStage(p), status: pipelineStatus(p, data), check: prereqChecklist(p, data) })).filter((c) => c.stage);
   const candidates = cards.filter((c) => c.p.pipelineTarget);
   const unread = data.summaries.filter((s) => !s.readAt).length;
-  const tone = (k) => (['attendance', 'p5', 'dropped'].includes(k) ? 'bad' : ['open', 'setup'].includes(k) ? 'info' : '');
+  const tone = (k) => (['attendance', 'p5', 'dropped'].includes(k) ? 'bad' : k === 'open' ? 'info' : '');
 
   return (
     <>
@@ -56,7 +56,7 @@ export default function Dashboard() {
         {flags.map((f, i) => {
           const body = <><span className="dot" /><span>{f.text}</span></>;
           if (f.personId) return <Link key={i} className={`flag ${tone(f.kind)}`} to={`/people/${f.personId}`}>{body}</Link>;
-          const to = f.kind === 'checklist' ? '/checklists' : f.kind === 'summary' ? '/inbox' : f.kind === 'setup' ? '/admin' : null;
+          const to = f.kind === 'summary' ? '/inbox' : null;
           return to ? <Link key={i} className={`flag ${tone(f.kind)}`} to={to}>{body}</Link> : <div key={i} className={`flag ${tone(f.kind)}`}>{body}</div>;
         })}
       </Card>

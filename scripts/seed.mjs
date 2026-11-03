@@ -1,5 +1,5 @@
 // One-time seed: loads data/roster.csv, data/areas.csv, data/p5_evaluation_items.csv,
-// data/prerequisites.json (and any rows in data/areas_checklist_template.csv) into Firestore,
+// and data/prerequisites.json into Firestore,
 // and gives your Google email admin access.
 //
 // Usage:
@@ -30,7 +30,6 @@ const seed = buildSeed({
   areasCsv: read('areas.csv'),
   p5Csv: read('p5_evaluation_items.csv'),
   prereqs: JSON.parse(read('prerequisites.json')),
-  templateCsv: read('areas_checklist_template.csv'),
   today: todayIso(),
 });
 

@@ -14,7 +14,6 @@ service cloud.firestore {
     function role() { return me().role; }
     function isAdmin() { return isMember() && role() == 'admin'; }
     function isStaff() { return isMember() && role() in ['admin', 'manager', 'shift_leader']; }
-    function isOverseer() { return isMember() && role() in ['admin', 'captain', 'assistant_captain']; }
     function isManager() { return isStaff() && me().get('isManager', false) == true; }
     function myPersonId() { return me().personId; }
     function ownsDoc() { return isMember() && resource.data.personId == myPersonId(); }
@@ -31,8 +30,6 @@ service cloud.firestore {
     match /settings/{id}       { allow read: if isMember(); allow write: if isAdmin(); }
     match /areas/{id}          { allow read: if isMember(); allow write: if isAdmin(); }
     match /p5Items/{id}        { allow read: if isMember(); allow write: if isAdmin(); }
-    match /modules/{id}        { allow read: if isMember(); allow write: if isAdmin(); }
-    match /checklistItems/{id} { allow read: if isMember(); allow write: if isAdmin(); }
     // Roster (names, roles, areas). Private records are in the collections below.
     match /people/{id}         { allow read: if isMember(); allow write: if isAdmin(); }
 
@@ -73,37 +70,6 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isStaff() && resource.data.authorId == myPersonId())
         || (isStaff() && onlyChanges(['resolved', 'updatedAt']));
-      allow delete: if isAdmin();
-    }
-
-    // Pathways progress: each person writes only their own.
-    match /progress/{id} {
-      allow read: if isStaff() || ownsDoc();
-      allow create, update: if isMember()
-        && request.resource.data.personId == myPersonId()
-        && id == myPersonId() + '_' + request.resource.data.moduleId;
-      allow delete: if isAdmin();
-    }
-
-    // Checklist runs: Captains oversee, Shift Leaders verify or send back.
-    match /checklistRuns/{id} {
-      allow read: if isMember();
-      allow create: if isAdmin() || (isOverseer()
-        && request.resource.data.status in ['open', 'overseen']
-        && !('verifiedById' in request.resource.data));
-      allow update: if isAdmin()
-        // Captain / Assistant Captain: work the items and mark overseen, until it's verified
-        || (isOverseer()
-            && resource.data.status != 'verified'
-            && request.resource.data.status in ['open', 'overseen', 'sent_back']
-            && (request.resource.data.status != 'overseen' || request.resource.data.overseenById == myPersonId())
-            && onlyChanges(['items', 'status', 'overseenById', 'overseenAt', 'updatedAt']))
-        // Shift Leader / MOD: verify or send back an overseen checklist
-        || (isStaff()
-            && resource.data.status == 'overseen'
-            && request.resource.data.status in ['verified', 'sent_back']
-            && request.resource.data.verifiedById == myPersonId()
-            && onlyChanges(['status', 'verifiedById', 'verifiedAt', 'verifyResult', 'verifyNote', 'updatedAt']));
       allow delete: if isAdmin();
     }
 

@@ -4,14 +4,13 @@ import { useApp } from '../data/AppContext.jsx';
 import { store } from '../data/store.js';
 import { can } from '../lib/access.js';
 import {
-  attendanceStats, pathwayFor, pathwayProgress, pipelineStatus, prereqChecklist, shiftSummary, statusFromTimes, daysInRoles, ROLE_KEY,
+  attendanceStats, pipelineStatus, prereqChecklist, shiftSummary, statusFromTimes, daysInRoles, ROLE_KEY,
 } from '../lib/rules.js';
 import { fmtPct } from '../lib/p5.js';
 import { addDays, daysBetween, fmtDate, nowIso } from '../lib/dates.js';
 import { ATTENDANCE_LABEL, ATTENDANCE_STATUSES, LETTER_AUTHOR_ROLES, NOTE_TYPES, STATUS_LABEL, TARGET_ROLES, PERSON_ROLES } from '../lib/constants.js';
-import { Bar, Card, Field, Pill, Seg, Tbd, toast } from '../components/ui.jsx';
+import { Card, Field, Pill, Seg, Tbd, toast } from '../components/ui.jsx';
 import { statusTone } from './Dashboard.jsx';
-import { PATHWAY_LABEL } from './Pathways.jsx';
 
 function Disclose({ label, children, small = true }) {
   const [open, setOpen] = useState(false);
@@ -47,8 +46,6 @@ export default function Profile() {
   const status = pipelineStatus(p, data);
   const check = prereqChecklist(p, data);
   const att = attendanceStats(data.attendance.filter((a) => a.personId === id), data.settings, data.today);
-  const pathway = pathwayFor(p);
-  const prog = pathwayProgress(id, pathway, data.modules, data.progress);
   const evals = data.p5Evals.filter((e) => e.personId === id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const letters = data.letters.filter((l) => l.personId === id);
   const apps = data.applications.filter((a) => a.personId === id);
@@ -87,7 +84,7 @@ export default function Profile() {
                 <div><b>{i.label}</b></div>
                 <div className="small muted">{i.current} · needs {i.required}{i.note ? ` · ${i.note}` : ''}</div>
                 {admin && (i.overridden ? (
-                  <button className="btn link small" onClick={() => save(() => store.update('people', id, { prereqOverrides: Object.fromEntries(Object.entries(p.prereqOverrides || {}).filter(([k]) => k !== i.id)) }), 'Override removed')}>Remove override</button>
+                  <button className="btn link small" onClick={() => save(() => store.update('people', id, { prereqOverrides: Object.fromEntries(Object.entries(p.prereqOverrides || {}).filter(([k]) => k !== i.id)), ...(i.type === 'pathway_complete' ? { pathwayComplete: Object.fromEntries(Object.entries(p.pathwayComplete || {}).filter(([k]) => k !== i.pathway)) } : {}) }), 'Override removed')}>Remove override</button>
                 ) : !i.met && (
                   <OverrideForm onSave={(note) => save(() => store.update('people', id, { prereqOverrides: { ...(p.prereqOverrides || {}), [i.id]: { note, by: member.personId, at: nowIso() } } }), 'Marked met')} />
                 ))}
@@ -109,24 +106,6 @@ export default function Profile() {
         <AttendanceTrend records={data.attendance.filter((a) => a.personId === id)} settings={data.settings} today={data.today} />
         {admin && <AttendanceForm personId={id} save={save} settings={data.settings} today={data.today} />}
         {admin && <RecentAttendance records={data.attendance.filter((a) => a.personId === id)} save={save} />}
-      </Card>
-
-      <Card title={PATHWAY_LABEL[pathway]} right={<span className="small">{prog.passedRequired}/{prog.requiredCount}</span>}>
-        <Bar pct={prog.requiredCount ? (prog.passedRequired / prog.requiredCount) * 100 : 0} />
-        {prog.rows.map(({ module: m, progress: pr }) => (
-          <div key={m.id} className="row between small" style={{ marginTop: 6 }}>
-            <span>{m.title}</span>
-            <span>{pr?.status === 'passed' ? '✓ Passed' : pr?.status === 'in_progress' ? `In progress${pr.bestPct != null ? ` (best ${Math.round(pr.bestPct)}%)` : ''}` : 'Not started'}</span>
-          </div>
-        ))}
-        {p.pathwayComplete?.[pathway] && <p className="small" style={{ color: 'var(--ok)' }}>Marked complete: {p.pathwayComplete[pathway].note}</p>}
-        {admin && !p.pathwayComplete?.[pathway] && (
-          <div style={{ marginTop: 8 }}>
-            <Disclose label="Mark pathway complete (outside the app)">{(close) => (
-              <NoteForm label="Note (e.g. finished CFA Pathways on…)" onSave={async (note) => { if (await save(() => store.update('people', id, { pathwayComplete: { ...(p.pathwayComplete || {}), [pathway]: { note, by: member.personId, at: nowIso() } } }), 'Marked complete')) close(); }} />
-            )}</Disclose>
-          </div>
-        )}
       </Card>
 
       {(p5Eligible || evals.length > 0) && (

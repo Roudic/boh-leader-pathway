@@ -3,15 +3,14 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
 import { store, demoMode } from '../data/store.js';
 import { defaultAppRole } from '../lib/access.js';
-import { parseCsv, toCsv } from '../lib/csv.js';
+import { toCsv } from '../lib/csv.js';
 import {
-  APP_ROLES, ATTENDANCE_LABEL, ATTENDANCE_STATUSES, CHECKPOINTS, CHECKPOINT_LABEL, PERSON_ROLES, TARGET_ROLES,
+  APP_ROLES, ATTENDANCE_LABEL, ATTENDANCE_STATUSES, PERSON_ROLES, TARGET_ROLES,
 } from '../lib/constants.js';
 import { fmtDate } from '../lib/dates.js';
 import { Card, Field, Pill, Seg, Tbd, toast } from '../components/ui.jsx';
-import { PATHWAY_LABEL } from './Pathways.jsx';
 
-const TABS = [['team', 'Team access'], ['people', 'People'], ['attendance', 'Attendance'], ['areas', 'Areas'], ['checklists', 'Checklists'], ['pathways', 'Pathways'], ['settings', 'Rules & TBDs'], ['records', 'Applications'], ['export', 'Export']];
+const TABS = [['team', 'Team access'], ['people', 'People'], ['attendance', 'Attendance'], ['areas', 'Areas'], ['settings', 'Rules & TBDs'], ['records', 'Applications'], ['export', 'Export']];
 
 function useSave() {
   const { reload } = useApp();
@@ -30,8 +29,6 @@ export default function Admin() {
       {tab === 'people' && <People />}
       {tab === 'attendance' && <AttendanceBulk />}
       {tab === 'areas' && <Areas />}
-      {tab === 'checklists' && <ChecklistItems />}
-      {tab === 'pathways' && <PathwaysEditor />}
       {tab === 'settings' && <Settings />}
       {tab === 'records' && <Applications />}
       {tab === 'export' && <Export />}
@@ -197,173 +194,6 @@ function Areas() {
   ));
 }
 
-// ---------------- Checklist items ----------------
-function ChecklistItems() {
-  const { data } = useApp();
-  const save = useSave();
-  const [areaId, setAreaId] = useState(data.areas[0]?.id);
-  const [cp, setCp] = useState('open');
-  const [text, setText] = useState('');
-  const [csv, setCsv] = useState('');
-  const items = data.checklistItems.filter((i) => i.areaId === areaId && i.checkpoint === cp).sort((a, b) => a.order - b.order);
-
-  const add = async () => {
-    if (!text.trim()) return;
-    if (await save(() => store.add('checklistItems', { areaId, checkpoint: cp, order: (items.at(-1)?.order || 0) + 1, text: text.trim(), required: true }), 'Item added')) setText('');
-  };
-  const move = (i, dir) => {
-    const other = items[i + dir];
-    if (!other) return;
-    save(async () => { await store.update('checklistItems', items[i].id, { order: other.order }); await store.update('checklistItems', other.id, { order: items[i].order }); });
-  };
-  const importCsv = async () => {
-    const ids = Object.fromEntries(data.areas.map((a) => [a.name.toLowerCase(), a.id]));
-    const rows = parseCsv(csv).filter((r) => ids[r.area?.toLowerCase()] && CHECKPOINTS.includes(r.checkpoint) && r.item_text);
-    if (!rows.length) { toast('No valid rows (columns: area,checkpoint,item_order,item_text,required,notes)'); return; }
-    if (await save(async () => {
-      for (const r of rows) await store.add('checklistItems', { areaId: ids[r.area.toLowerCase()], checkpoint: r.checkpoint, order: Number(r.item_order) || 99, text: r.item_text, required: !/^(false|no|0)$/i.test(r.required || '') });
-    }, `Imported ${rows.length} items`)) setCsv('');
-  };
-
-  return (
-    <>
-      <Card tight>
-        <Field label="Area"><Seg value={areaId} options={data.areas.map((a) => [a.id, a.name])} onChange={setAreaId} /></Field>
-        <Field label="Checkpoint"><Seg value={cp} options={CHECKPOINTS.map((c) => [c, CHECKPOINT_LABEL[c]])} onChange={setCp} /></Field>
-      </Card>
-      <Card title={`${data.areas.find((a) => a.id === areaId)?.name} · ${CHECKPOINT_LABEL[cp]}`}>
-        {items.length === 0 && <p className="muted">No items yet (TBD).</p>}
-        {items.map((it, i) => (
-          <div key={it.id} className="check">
-            <div className="grow">
-              <input defaultValue={it.text} onBlur={(e) => e.target.value !== it.text && save(() => store.update('checklistItems', it.id, { text: e.target.value }), 'Saved')} />
-              <label className="row small" style={{ fontWeight: 400, margin: '4px 0 0' }}><input type="checkbox" checked={it.required} onChange={(e) => save(() => store.update('checklistItems', it.id, { required: e.target.checked }))} /> Required</label>
-            </div>
-            <div className="row">
-              <button className="btn link" onClick={() => move(i, -1)} aria-label="Move up">↑</button>
-              <button className="btn link" onClick={() => move(i, 1)} aria-label="Move down">↓</button>
-              <button className="btn link" onClick={() => confirm('Delete this item?') && save(() => store.remove('checklistItems', it.id), 'Deleted')} aria-label="Delete">✕</button>
-            </div>
-          </div>
-        ))}
-        <div className="row" style={{ marginTop: 10 }}>
-          <input className="grow" value={text} onChange={(e) => setText(e.target.value)} placeholder="New item…" onKeyDown={(e) => e.key === 'Enter' && add()} />
-          <button className="btn small" onClick={add}>Add</button>
-        </div>
-      </Card>
-      <Card title="Import from CSV">
-        <p className="small muted" style={{ marginTop: 0 }}>Paste rows using the areas_checklist_template.csv columns: area,checkpoint,item_order,item_text,required,notes</p>
-        <textarea value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={'area,checkpoint,item_order,item_text,required,notes\nPrep,open,1,...,true,'} />
-        <button className="btn small" style={{ marginTop: 8 }} onClick={importCsv}>Import</button>
-      </Card>
-      <Card title="Which checkpoints run in which daypart">
-        <CheckpointsByDaypart />
-      </Card>
-    </>
-  );
-}
-
-function CheckpointsByDaypart() {
-  const { data } = useApp();
-  const save = useSave();
-  const map = data.settings?.tbd?.checkpointsByDaypart;
-  const toggle = (dp, cp) => {
-    const cur = map?.[dp] || CHECKPOINTS;
-    const next = cur.includes(cp) ? cur.filter((c) => c !== cp) : CHECKPOINTS.filter((c) => cur.includes(c) || c === cp);
-    save(() => store.update('settings', 'rules', { tbd: { ...data.settings.tbd, checkpointsByDaypart: { AM: map?.AM || CHECKPOINTS, PM: map?.PM || CHECKPOINTS, [dp]: next } } }), 'Saved');
-  };
-  return (
-    <>
-      {!map && <p className="small"><Tbd /> Using all four checkpoints in both dayparts until you decide.</p>}
-      {['AM', 'PM'].map((dp) => (
-        <div key={dp} className="row wrap" style={{ margin: '6px 0' }}>
-          <b style={{ width: 36 }}>{dp}</b>
-          {CHECKPOINTS.map((cp) => (
-            <label key={cp} className="row small" style={{ fontWeight: 400, margin: 0 }}><input type="checkbox" checked={(map?.[dp] || CHECKPOINTS).includes(cp)} onChange={() => toggle(dp, cp)} /> {CHECKPOINT_LABEL[cp]}</label>
-          ))}
-        </div>
-      ))}
-    </>
-  );
-}
-
-// ---------------- Pathways modules + quizzes ----------------
-function PathwaysEditor() {
-  const { data } = useApp();
-  const save = useSave();
-  const [pathway, setPathway] = useState('captain');
-  const [edit, setEdit] = useState(null);
-  const mods = data.modules.filter((m) => m.pathway === pathway).sort((a, b) => a.order - b.order);
-
-  const submit = async () => {
-    if (!edit.title.trim()) { toast('Title required'); return; }
-    const bad = edit.questions.findIndex((q) => !q.prompt.trim() || q.choices.filter((c) => c.trim()).length < 2 || q.correctIndex == null || !q.choices[q.correctIndex]?.trim());
-    if (bad >= 0) { toast(`Question ${bad + 1}: needs a prompt, 2+ choices, and the correct one picked`); return; }
-    const doc = {
-      pathway, title: edit.title.trim(), order: Number(edit.order) || 1, required: !!edit.required, content: edit.content,
-      passPct: edit.passPct === '' || edit.passPct == null ? null : Number(edit.passPct),
-      questions: edit.questions.map((q) => {
-        const choices = q.choices.map((c) => c.trim()).filter(Boolean);
-        return { prompt: q.prompt.trim(), choices, correctIndex: choices.indexOf(q.choices[q.correctIndex].trim()), explanation: q.explanation || '' };
-      }),
-    };
-    const ok = await save(() => (edit.id ? store.update('modules', edit.id, doc) : store.add('modules', doc)), 'Module saved');
-    if (ok) setEdit(null);
-  };
-
-  if (edit) {
-    const setQ = (i, patch) => setEdit({ ...edit, questions: edit.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) });
-    return (
-      <Card title={edit.id ? 'Edit module' : 'New module'}>
-        <Field label="Title"><input value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-        <div className="btns">
-          <Field label="Order"><input inputMode="numeric" value={edit.order} onChange={(e) => setEdit({ ...edit, order: e.target.value })} /></Field>
-          <Field label="Quiz pass % (blank = global)"><input inputMode="numeric" value={edit.passPct ?? ''} onChange={(e) => setEdit({ ...edit, passPct: e.target.value })} placeholder="TBD" /></Field>
-        </div>
-        <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" checked={!!edit.required} onChange={(e) => setEdit({ ...edit, required: e.target.checked })} /> Required to complete the pathway</label>
-        <Field label="Content" hint="Blank line = new paragraph. **bold**, [link](https://…), ![image](https://…) work."><textarea value={edit.content} onChange={(e) => setEdit({ ...edit, content: e.target.value })} style={{ minHeight: 180 }} /></Field>
-        <h3>Quiz questions ({edit.questions.length})</h3>
-        <p className="small muted">No questions = the module completes when they tap “I've finished this module”.</p>
-        {edit.questions.map((q, i) => (
-          <div key={i} className="card tight" style={{ background: '#fafaf9' }}>
-            <Field label={`Question ${i + 1}`}><input value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} /></Field>
-            {q.choices.map((c, ci) => (
-              <div key={ci} className="row" style={{ marginTop: 6 }}>
-                <input type="radio" name={`correct-${i}`} checked={q.correctIndex === ci} onChange={() => setQ(i, { correctIndex: ci })} aria-label="Correct answer" style={{ width: 22, height: 22 }} />
-                <input value={c} onChange={(e) => setQ(i, { choices: q.choices.map((x, xi) => (xi === ci ? e.target.value : x)) })} placeholder={`Choice ${ci + 1}`} />
-              </div>
-            ))}
-            <div className="row">
-              <button className="btn link small" onClick={() => setQ(i, { choices: [...q.choices, ''] })}>+ choice</button>
-              <button className="btn link small" onClick={() => setEdit({ ...edit, questions: edit.questions.filter((_, j) => j !== i) })}>Remove question</button>
-            </div>
-            <Field label="Explanation (shown after)"><input value={q.explanation || ''} onChange={(e) => setQ(i, { explanation: e.target.value })} /></Field>
-          </div>
-        ))}
-        <button className="btn secondary small" onClick={() => setEdit({ ...edit, questions: [...edit.questions, { prompt: '', choices: ['', '', ''], correctIndex: null, explanation: '' }] })}>+ Add question</button>
-        <div className="btns" style={{ marginTop: 14 }}><button className="btn secondary" onClick={() => setEdit(null)}>Cancel</button><button className="btn" onClick={submit}>Save module</button></div>
-      </Card>
-    );
-  }
-
-  return (
-    <>
-      <Seg value={pathway} options={[['captain', 'Captain'], ['shift_leader', 'Shift Leader']]} onChange={setPathway} />
-      <Card title={PATHWAY_LABEL[pathway]} right={<button className="btn small" onClick={() => setEdit({ title: '', order: (mods.at(-1)?.order || 0) + 1, required: true, content: '', passPct: '', questions: [] })}>Add module</button>}>
-        {mods.map((m) => (
-          <div key={m.id} className="list-link">
-            <span>{m.order}. {m.title}<br /><span className="small muted">{m.required ? 'Required' : 'Optional'} · {m.questions?.length || 0} questions · pass {m.passPct ?? data.settings?.tbd?.quizPassPct ?? 'TBD'}{m.passPct == null && data.settings?.tbd?.quizPassPct != null ? '% (global)' : m.passPct != null ? '%' : ''}</span></span>
-            <span className="row">
-              <button className="btn link small" onClick={() => setEdit({ ...m, questions: (m.questions || []).map((q) => ({ ...q })) })}>Edit</button>
-              <button className="btn link small" onClick={() => confirm(`Delete "${m.title}"?`) && save(() => store.remove('modules', m.id), 'Deleted')}>✕</button>
-            </span>
-          </div>
-        ))}
-      </Card>
-    </>
-  );
-}
-
 // ---------------- Rules & TBD settings ----------------
 function Settings() {
   const { data } = useApp();
@@ -424,8 +254,7 @@ function Settings() {
           {tbdNote(t.excusedHandling, "don't count them")}
         </Field>
       </Card>
-      <Card title="Pathways & shifts">
-        <Field label="Quiz pass % (used when a module doesn't set its own)"><input inputMode="numeric" value={t.quizPassPct ?? ''} placeholder="TBD" onChange={(e) => set((d) => { d.tbd.quizPassPct = num(e.target.value); })} />{tbdNote(t.quizPassPct)}</Field>
+      <Card title="Dayparts">
         <div className="btns">
           <Field label="AM daypart times"><input value={t.daypartTimes?.AM || ''} placeholder="TBD" onChange={(e) => set((d) => { d.tbd.daypartTimes = { ...d.tbd.daypartTimes, AM: e.target.value || null }; })} /></Field>
           <Field label="PM daypart times"><input value={t.daypartTimes?.PM || ''} placeholder="TBD" onChange={(e) => set((d) => { d.tbd.daypartTimes = { ...d.tbd.daypartTimes, PM: e.target.value || null }; })} /></Field>
@@ -474,7 +303,7 @@ function Applications() {
 // ---------------- Export ----------------
 function Export() {
   const { data } = useApp();
-  const cols = ['people', 'areas', 'attendance', 'letters', 'applications', 'p5Evals', 'shifts', 'progress', 'roleHistory', 'coaching', 'checklistItems', 'checklistRuns', 'summaries', 'modules', 'p5Items', 'members'];
+  const cols = ['people', 'areas', 'attendance', 'letters', 'applications', 'p5Evals', 'shifts', 'roleHistory', 'coaching', 'summaries', 'p5Items', 'members'];
   const download = (name, text, type) => {
     const url = URL.createObjectURL(new Blob([text], { type }));
     const a = document.createElement('a');
@@ -488,7 +317,7 @@ function Export() {
       <div className="row wrap">
         {cols.map((c) => <button key={c} className="btn secondary small" onClick={() => download(`${c}-${data.today}.csv`, toCsv(data[c]), 'text/csv')}>{c} ({data[c].length})</button>)}
       </div>
-      <p className="small muted">Attendance export covers the last 180 days. Checklist runs cover the last 14 days.{demoMode ? ' (Demo data)' : ''}</p>
+      <p className="small muted">Attendance export covers the last 180 days.{demoMode ? ' (Demo data)' : ''}</p>
     </Card>
   );
 }

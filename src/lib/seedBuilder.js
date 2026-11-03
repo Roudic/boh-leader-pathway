@@ -63,9 +63,7 @@ export function buildSettings(prereqs) {
       excusedHandling: null, // default: 'exclude' excused shifts from the count
       p5Counts: null, // default: 'latest'
       assistantDaysCount: null, // default: false (Area Captain days only)
-      quizPassPct: null, // no default: quizzes can't be passed until set
       daypartTimes: { AM: null, PM: null },
-      checkpointsByDaypart: null, // default: all four checkpoints in both dayparts
       evalScoreSheet: null,
       trainingScoreSheet: null,
     },
@@ -73,9 +71,9 @@ export function buildSettings(prereqs) {
   };
 }
 
-export function buildSeed({ rosterCsv, areasCsv, p5Csv, prereqs, templateCsv = '', today }) {
+export function buildSeed({ rosterCsv, areasCsv, p5Csv, prereqs, today }) {
   const out = {
-    settings: {}, areas: {}, people: {}, roleHistory: {}, p5Items: {}, modules: {}, checklistItems: {},
+    settings: {}, areas: {}, people: {}, roleHistory: {}, p5Items: {},
   };
   const meta = { createdAt: today, updatedAt: today, createdBy: 'seed' };
 
@@ -149,34 +147,6 @@ export function buildSeed({ rosterCsv, areasCsv, p5Csv, prereqs, templateCsv = '
     counters[pIndex] = (counters[pIndex] || 0) + 1;
     const id = `${pIndex}.${counters[pIndex]}`;
     out.p5Items[id] = { pIndex, pArea: it.p_area, behavior: it.behavior, scale: it.scale, order: idx + 1, ...meta };
-  });
-
-  // Placeholder Pathways modules (content TBD)
-  for (const pathway of ['captain', 'shift_leader']) {
-    out.modules[`${pathway}_placeholder`] = {
-      pathway,
-      order: 1,
-      title: 'TBD: module content coming',
-      content: 'Module content is TBD. Joshua will add it in Admin → Pathways.',
-      questions: [],
-      passPct: null,
-      required: true,
-      ...meta,
-    };
-  }
-
-  // Checklist items (template is columns only today; imports any rows Joshua adds later)
-  parseCsv(templateCsv).forEach((row, idx) => {
-    const areaId = AREA_IDS[row.area];
-    if (!areaId || !row.item_text) return;
-    out.checklistItems[`seed_${idx + 1}`] = {
-      areaId,
-      checkpoint: row.checkpoint,
-      order: Number(row.item_order) || idx + 1,
-      text: row.item_text,
-      required: !/^(false|no|0)$/i.test(row.required || ''),
-      ...meta,
-    };
   });
 
   return out;
