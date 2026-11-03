@@ -46,7 +46,7 @@ export function AppProvider({ children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => store.onAuth(async (u) => {
+  useEffect(() => store?.onAuth(async (u) => {
     setError('');
     setData(null);
     setMember(null);
