@@ -1,5 +1,7 @@
 # Setup: Hueytown BOH Leaders
 
+> **Status:** Steps 1–6 are done (Firebase project `hueytown-boh-leaders`). Only step 7, adding your team, is left. The steps below are kept for reference.
+
 About 20 minutes, one time. You need a computer, your Google account, and this folder.
 
 The site will live at **https://roudic.github.io/boh-leader-pathway/**
