@@ -420,8 +420,7 @@ function AdminActions({ p, status, save, member, areas, history, today }) {
                 await store.add('roleHistory', { personId: p.id, role: promo.role, areaId: promo.areaId || null, daypart: promo.daypart || null, startDate: today, endDate: null, reason: promo.reason || 'Promoted' });
                 await store.update('people', p.id, { currentRole: promo.role, areaId: promo.areaId || null, daypart: promo.daypart || null, roleStartDate: today, pipelineTarget: null, approvedForPromotion: null, statusOverride: null, statusLabel: promo.role });
                 const area = areas.find((a) => a.id === promo.areaId);
-                if (area && promo.role === 'Area Captain') await store.update('areas', area.id, { captainId: p.id });
-                if (area && promo.role === 'Assistant Captain') await store.update('areas', area.id, { assistantCaptainId: p.id, potentialAssistantId: area.potentialAssistantId === p.id ? null : area.potentialAssistantId, assistantDaypart: promo.daypart || area.assistantDaypart || null });
+                if (area && promo.role === 'Assistant Captain' && promo.daypart) await store.update('areas', area.id, { assistantDaypart: promo.daypart });
               }, `${p.name} promoted`);
               if (ok) close();
             }}>Confirm promotion</button>

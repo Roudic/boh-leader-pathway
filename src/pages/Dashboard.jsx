@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useApp } from '../data/AppContext.jsx';
-import { dashboardFlags, pipelineStage, pipelineStatus, prereqChecklist } from '../lib/rules.js';
+import { areaCoverage, dashboardFlags, pipelineStage, pipelineStatus, prereqChecklist } from '../lib/rules.js';
 import { PIPELINE_STAGES, STATUS_LABEL } from '../lib/constants.js';
 import { fmtDate } from '../lib/dates.js';
 import { Card, Pill, Tbd } from '../components/ui.jsx';
@@ -35,17 +35,15 @@ export default function Dashboard() {
       <h2>Area coverage</h2>
       <div className="coverage">
         {data.areas.map((a) => {
-          const cap = data.people.find((p) => p.id === a.captainId);
-          const ac = data.people.find((p) => p.id === a.assistantCaptainId);
-          const pot = data.people.find((p) => p.id === a.potentialAssistantId);
-          const capDp = cap?.daypart;
-          const acDp = a.assistantDaypart || (capDp ? (capDp === 'AM' ? 'PM' : 'AM') : null);
+          const { captains, assistants, potentials, assistantDaypart } = areaCoverage(a, data.people);
           return (
             <div className="c" key={a.id}>
               <b>{a.name}</b>
-              <div>Capt: {cap ? <Link to={`/people/${cap.id}`}>{cap.name}</Link> : <Pill tone="bad">Open</Pill>} {cap && (capDp || <Tbd />)}</div>
-              <div>Asst: {ac ? <Link to={`/people/${ac.id}`}>{ac.name}</Link> : <Pill tone="warn">Open</Pill>} {acDp || <Tbd />}</div>
-              {!ac && pot && <div className="muted small">Potential: <Link to={`/people/${pot.id}`}>{pot.name}</Link></div>}
+              {captains.map((p) => <div key={p.id}>Capt: <Link to={`/people/${p.id}`}>{p.name}</Link> {p.daypart || <Tbd />}</div>)}
+              {!captains.length && <div>Capt: <Pill tone="bad">Open</Pill></div>}
+              {assistants.map((p) => <div key={p.id}>Asst: <Link to={`/people/${p.id}`}>{p.name}</Link> {p.daypart || <Tbd />}</div>)}
+              {!assistants.length && <div>Asst: <Pill tone="warn">Open</Pill> {assistantDaypart || <Tbd />}</div>}
+              {!assistants.length && potentials.map((p) => <div key={p.id} className="muted small">Potential: <Link to={`/people/${p.id}`}>{p.name}</Link></div>)}
             </div>
           );
         })}
@@ -75,7 +73,7 @@ export default function Dashboard() {
                   <div className="small muted">{[areaName(data.areas, p.areaId), p.daypart || (p.areaId ? 'daypart TBD' : '')].filter(Boolean).join(' · ')}</div>
                   {p.pipelineTarget && <div className="small">→ {p.pipelineTarget}</div>}
                   <div style={{ marginTop: 4 }}>
-                    {status.status !== 'none' ? <Pill tone={statusTone(status.status)}>{STATUS_LABEL[status.status]}</Pill> : <span className="small muted">{p.statusLabel}</span>}
+                    {status.status !== 'none' && <Pill tone={statusTone(status.status)}>{STATUS_LABEL[status.status]}</Pill>}
                   </div>
                 </Link>
               ))}

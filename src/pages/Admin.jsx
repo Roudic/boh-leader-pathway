@@ -4,6 +4,7 @@ import { useApp } from '../data/AppContext.jsx';
 import { store, demoMode } from '../data/store.js';
 import { defaultAppRole } from '../lib/access.js';
 import { toCsv } from '../lib/csv.js';
+import { areaCoverage } from '../lib/rules.js';
 import {
   APP_ROLES, ATTENDANCE_LABEL, ATTENDANCE_STATUSES, PERSON_ROLES, TARGET_ROLES,
 } from '../lib/constants.js';
@@ -96,8 +97,19 @@ function People() {
     const doc = { ...edit, areaId: edit.areaId || null, daypart: edit.daypart || null, pipelineTarget: edit.pipelineTarget || null, isAdmin: edit.currentRole === 'Admin' || !!edit.isAdmin };
     delete doc.id;
     const ok = await save(async () => {
-      if (edit.id) await store.update('people', edit.id, doc);
-      else {
+      if (edit.id) {
+        // Keep role history matching the person, since days as a Captain are counted from it.
+        const before = data.people.find((p) => p.id === edit.id);
+        const open = data.roleHistory.filter((h) => h.personId === edit.id && !h.endDate);
+        if (before.currentRole !== doc.currentRole) {
+          for (const h of open) await store.update('roleHistory', h.id, { endDate: data.today });
+          await store.add('roleHistory', { personId: edit.id, role: doc.currentRole, areaId: doc.areaId, daypart: doc.daypart, startDate: data.today, endDate: null, reason: 'Changed in Admin' });
+          doc.roleStartDate = data.today;
+        } else {
+          for (const h of open.filter((x) => x.role === doc.currentRole)) await store.update('roleHistory', h.id, { areaId: doc.areaId, daypart: doc.daypart });
+        }
+        await store.update('people', edit.id, doc);
+      } else {
         const newId = `P${String(Date.now()).slice(-6)}`;
         await store.set('people', newId, { ...doc, prereqOverrides: {}, pathwayComplete: {}, roleStartDate: null });
         await store.add('roleHistory', { personId: newId, role: doc.currentRole, areaId: doc.areaId, daypart: doc.daypart, startDate: null, endDate: null, reason: 'Added in Admin' });
@@ -119,7 +131,7 @@ function People() {
         <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" checked={edit.active !== false} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} /> Active</label>
         <Field label="Notes"><textarea value={edit.notes || ''} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></Field>
         <div className="btns" style={{ marginTop: 10 }}><button className="btn secondary" onClick={() => setEdit(null)}>Cancel</button><button className="btn" onClick={submit}>Save</button></div>
-        {edit.id && <p className="small muted">To change someone's role because of a promotion, use Promote on their profile so their role history is kept.</p>}
+        {edit.id && <p className="small muted">Changing the role here ends their old role and starts the new one today. For a promotion, use Promote on their profile.</p>}
       </Card>
     );
   }
@@ -182,16 +194,17 @@ function AttendanceBulk() {
 function Areas() {
   const { data } = useApp();
   const save = useSave();
-  const opt = (filter) => [<option key="" value="">Open</option>, ...data.people.filter(filter).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)];
-  const active = (p) => p.active !== false;
-  return data.areas.map((a) => (
-    <Card key={a.id} title={a.name}>
-      <Field label="Area Captain"><select value={a.captainId || ''} onChange={(e) => save(() => store.update('areas', a.id, { captainId: e.target.value || null }), 'Saved')}>{opt(active)}</select></Field>
-      <Field label="Assistant Captain"><select value={a.assistantCaptainId || ''} onChange={(e) => save(() => store.update('areas', a.id, { assistantCaptainId: e.target.value || null }), 'Saved')}>{opt(active)}</select></Field>
-      <Field label="Potential Assistant Captain"><select value={a.potentialAssistantId || ''} onChange={(e) => save(() => store.update('areas', a.id, { potentialAssistantId: e.target.value || null }), 'Saved')}>{opt(active)}</select></Field>
-      <Field label="Assistant Captain daypart" hint="Covers the daypart the Captain isn't working."><Seg value={a.assistantDaypart || ''} options={[['', 'TBD'], 'AM', 'PM']} onChange={(v) => save(() => store.update('areas', a.id, { assistantDaypart: v || null }), 'Saved')} /></Field>
-    </Card>
-  ));
+  const names = (list) => (list.length ? list.map((p) => p.name).join(', ') : 'Open');
+  return data.areas.map((a) => {
+    const c = areaCoverage(a, data.people);
+    return (
+      <Card key={a.id} title={a.name}>
+        <p className="small" style={{ marginTop: 0 }}>Area Captain: <b>{names(c.captains)}</b><br />Assistant Captain: <b>{names(c.assistants)}</b>{c.potentials.length ? <><br />Potential Assistant Captain: <b>{names(c.potentials)}</b></> : null}</p>
+        <p className="small muted">To change who's here, edit the person under People.</p>
+        <Field label="Assistant Captain daypart" hint="Covers the daypart the Captain isn't working."><Seg value={a.assistantDaypart || ''} options={[['', 'TBD'], 'AM', 'PM']} onChange={(v) => save(() => store.update('areas', a.id, { assistantDaypart: v || null }), 'Saved')} /></Field>
+      </Card>
+    );
+  });
 }
 
 // ---------------- Rules & TBD settings ----------------

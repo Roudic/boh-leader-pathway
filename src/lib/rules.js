@@ -208,6 +208,17 @@ export function attendanceTarget(person, settings) {
   return pr.find((p) => p.type === 'attendance_pct')?.value ?? null;
 }
 
+// ---------- Area coverage ----------
+// Who covers an area comes only from each person's role and area, so editing a person updates it everywhere.
+export function areaCoverage(area, people) {
+  const here = people.filter((p) => p.active !== false && p.areaId === area.id);
+  const captains = here.filter((p) => p.currentRole === 'Area Captain');
+  const assistants = here.filter((p) => p.currentRole === 'Assistant Captain');
+  const potentials = here.filter((p) => p.pipelineTarget === 'Assistant Captain' && p.currentRole !== 'Assistant Captain');
+  const opposite = captains.length === 1 && captains[0].daypart ? (captains[0].daypart === 'AM' ? 'PM' : 'AM') : null;
+  return { captains, assistants, potentials, assistantDaypart: assistants[0]?.daypart || area.assistantDaypart || opposite };
+}
+
 // ---------- Dashboard flags ----------
 export function dashboardFlags(ctx) {
   const { people, areas, settings, today } = ctx;
@@ -232,9 +243,9 @@ export function dashboardFlags(ctx) {
   }
 
   for (const a of areas) {
-    if (!a.assistantCaptainId) {
-      const pot = people.find((p) => p.id === a.potentialAssistantId);
-      flags.push({ kind: 'open', text: `${a.name}: Assistant Captain open${pot ? ` (${pot.name} potential)` : ''}` });
+    const { assistants, potentials } = areaCoverage(a, people);
+    if (!assistants.length) {
+      flags.push({ kind: 'open', text: `${a.name}: Assistant Captain open${potentials.length ? ` (${potentials.map((p) => p.name).join(', ')} potential)` : ''}` });
     }
   }
 

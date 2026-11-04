@@ -125,15 +125,9 @@ export function buildSeed({ rosterCsv, areasCsv, p5Csv, prereqs, today }) {
   const areas = parseCsv(areasCsv);
   for (const a of areas) {
     const id = a.area_id || AREA_IDS[a.area_name];
-    const captain = roster.find((r) => r.current_role === 'Area Captain' && AREA_IDS[r.area] === id);
-    const assistant = roster.find((r) => r.current_role === 'Assistant Captain' && AREA_IDS[r.area] === id);
-    const potential = roster.find((r) => r.pipeline_target === 'Assistant Captain' && AREA_IDS[r.area] === id);
     out.areas[id] = {
       name: a.area_name,
       order: Number(id.slice(1)),
-      captainId: captain?.person_id || null,
-      assistantCaptainId: assistant?.person_id || null,
-      potentialAssistantId: potential?.person_id || null,
       assistantDaypart: cleanDaypart(a.assistant_captain_daypart),
       ...meta,
     };
